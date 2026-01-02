@@ -1,5 +1,5 @@
 
-import { Question, QuestionType } from './types';
+import { Question, QuestionType } from './types.ts';
 
 const NAM_NEIGHBOURHOOD_SCRIPT = "My neighbourhood is very quiet. It is in the suburbs of the city. There is a large park near my house. The streets are wide and there is not much traffic. The people here are very friendly and helpful.";
 

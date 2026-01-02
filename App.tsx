@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { QUESTIONS } from './data';
-import { QuestionType, QuizState } from './types';
+import { QUESTIONS } from './data.ts';
+import { QuestionType, QuizState } from './types.ts';
 import { GoogleGenAI } from "@google/genai";
 import { 
   Trophy, CheckCircle, XCircle, ChevronRight, RotateCcw, 
@@ -50,6 +50,7 @@ const App: React.FC = () => {
     if (isLoadingAi) return;
     setIsLoadingAi(true);
     try {
+      // Khởi tạo instance mới mỗi lần gọi để đảm bảo lấy API_KEY mới nhất từ env
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const prompt = `Bạn là một giáo viên tiếng Anh lớp 6 vui tính. Hãy giải thích ngắn gọn (dưới 50 từ) tại sao đáp án "${currentQuestion.correctAnswer}" là đúng cho câu hỏi: "${currentQuestion.question}". 
       Học sinh chọn: "${selectedOption}". Giải thích bằng tiếng Việt dễ hiểu cho trẻ em.`;
@@ -58,8 +59,9 @@ const App: React.FC = () => {
         model: 'gemini-3-flash-preview',
         contents: prompt,
       });
-      setAiExplanation(response.text);
+      setAiExplanation(response.text || "Gia sư AI đã có câu trả lời nhưng bị trống nội dung!");
     } catch (error) {
+      console.error("AI Error:", error);
       setAiExplanation("Gia sư AI đang bận một chút, bạn hãy xem đáp án đúng bên dưới nhé!");
     } finally {
       setIsLoadingAi(false);
