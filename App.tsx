@@ -11,6 +11,7 @@ import {
 
 const CORRECT_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3';
 const WRONG_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3';
+const HAPPY_NEW_YEAR_SOUND = 'https://www.mboxdrive.com/happynewyear_short.mp3'; // Generic celebratory track for demo
 
 const OPTION_COLORS = [
   { bg: 'bg-blue-500', shadow: 'bg-blue-700', text: 'text-blue-700', ring: 'ring-blue-100' },
@@ -31,26 +32,45 @@ const App: React.FC = () => {
   const [showFeedback, setShowFeedback] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const [floatingPoints, setFloatingPoints] = useState<{ id: number; show: boolean }>({ id: 0, show: false });
+  const [blossoms, setBlossoms] = useState<{ id: number; left: string; delay: string }[]>([]);
   const [aiExplanation, setAiExplanation] = useState<string | null>(null);
   const [isLoadingAi, setIsLoadingAi] = useState(false);
   
   const audioCorrect = useRef<HTMLAudioElement | null>(null);
   const audioWrong = useRef<HTMLAudioElement | null>(null);
+  const audioFinish = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     audioCorrect.current = new Audio(CORRECT_SOUND);
     audioWrong.current = new Audio(WRONG_SOUND);
+    audioFinish.current = new Audio(HAPPY_NEW_YEAR_SOUND);
   }, []);
 
+  useEffect(() => {
+    if (state.isFinished) {
+      audioFinish.current?.play().catch(() => {});
+    }
+  }, [state.isFinished]);
+
   const currentQuestion = QUESTIONS[state.currentQuestionIndex];
-  const isReading = currentQuestion.category.toLowerCase().includes('reading');
-  const isListening = currentQuestion.category.toLowerCase().includes('listening');
+  const categoryLower = currentQuestion.category.toLowerCase();
+  const isReading = categoryLower.includes('reading');
+  const isListening = categoryLower.includes('listening');
+
+  const triggerBlossoms = () => {
+    const newBlossoms = Array.from({ length: 12 }).map((_, i) => ({
+      id: Date.now() + i,
+      left: `${Math.random() * 100}%`,
+      delay: `${Math.random() * 1}s`
+    }));
+    setBlossoms(newBlossoms);
+    setTimeout(() => setBlossoms([]), 3000);
+  };
 
   const getAiExplanation = async () => {
     if (isLoadingAi) return;
     setIsLoadingAi(true);
     try {
-      // Khởi tạo instance mới mỗi lần gọi để đảm bảo lấy API_KEY mới nhất từ env
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const prompt = `Bạn là một giáo viên tiếng Anh lớp 6 vui tính. Hãy giải thích ngắn gọn (dưới 50 từ) tại sao đáp án "${currentQuestion.correctAnswer}" là đúng cho câu hỏi: "${currentQuestion.question}". 
       Học sinh chọn: "${selectedOption}". Giải thích bằng tiếng Việt dễ hiểu cho trẻ em.`;
@@ -85,6 +105,7 @@ const App: React.FC = () => {
         userAnswers: { ...prev.userAnswers, [currentQuestion.id]: option }
       }));
       setFloatingPoints({ id: Date.now(), show: true });
+      triggerBlossoms();
       setTimeout(() => setFloatingPoints({ id: 0, show: false }), 1500);
     } else {
       audioWrong.current?.play().catch(() => {});
@@ -116,14 +137,25 @@ const App: React.FC = () => {
     setSelectedOption(null);
     setShowFeedback(false);
     setAiExplanation(null);
+    if (audioFinish.current) {
+        audioFinish.current.pause();
+        audioFinish.current.currentTime = 0;
+    }
   };
 
   const progress = ((state.currentQuestionIndex + 1) / QUESTIONS.length) * 100;
 
   if (state.isFinished) {
     return (
-      <div className="flex items-center justify-center min-h-screen p-4 bg-[#F0F4F8] font-sans">
-        <div className="bg-white rounded-[2.5rem] shadow-2xl p-10 max-w-md w-full text-center space-y-8 border-b-[12px] border-blue-200">
+      <div className="flex items-center justify-center min-h-screen p-4 bg-[#F0F4F8] font-sans overflow-hidden">
+        {/* Falling blossoms on finish screen too */}
+        <div className="fixed inset-0 pointer-events-none z-50">
+           {Array.from({length: 20}).map((_, i) => (
+             <span key={i} className="blossom-particle" style={{left: `${Math.random()*100}%`, animationDelay: `${Math.random()*5}s`}}>🌸</span>
+           ))}
+        </div>
+        
+        <div className="bg-white rounded-[2.5rem] shadow-2xl p-10 max-w-md w-full text-center space-y-8 border-b-[12px] border-blue-200 z-10">
           <div className="relative inline-block">
             <div className="bg-yellow-100 w-32 h-32 rounded-full flex items-center justify-center mx-auto animate-bounce shadow-inner border-4 border-yellow-200">
               <Trophy className="text-yellow-600 w-16 h-16" />
@@ -133,7 +165,7 @@ const App: React.FC = () => {
           
           <div className="space-y-2">
             <h1 className="text-4xl font-black text-gray-800 tracking-tight">XUẤT SẮC!</h1>
-            <p className="text-gray-500 font-medium text-lg">Bạn đã chinh phục bài ôn tập</p>
+            <p className="text-gray-500 font-medium text-lg italic">"Happy New Year! Bạn giỏi lắm!"</p>
           </div>
 
           <div className="py-8 px-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-[2rem] border-2 border-blue-100 shadow-sm relative overflow-hidden">
@@ -170,7 +202,20 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="max-w-md mx-auto min-h-screen flex flex-col p-4 bg-[#F8FAFC] md:max-w-lg lg:max-w-xl font-sans selection:bg-blue-100">
+    <div className="max-w-md mx-auto min-h-screen flex flex-col p-4 bg-[#F8FAFC] md:max-w-lg lg:max-w-xl font-sans selection:bg-blue-100 relative">
+      {/* Blossom Particles Layer */}
+      <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+        {blossoms.map((b) => (
+          <span 
+            key={b.id} 
+            className="blossom-particle"
+            style={{ left: b.left, animationDelay: b.delay }}
+          >
+            🌸
+          </span>
+        ))}
+      </div>
+
       {/* Header */}
       <div className="bg-white rounded-3xl p-4 shadow-xl mb-6 flex justify-between items-center sticky top-4 z-20 border-b-4 border-gray-100/50 backdrop-blur-md bg-white/90">
         <div className="flex items-center gap-3">
@@ -233,17 +278,19 @@ const App: React.FC = () => {
           </div>
 
           <div className="p-6 space-y-6">
-            {/* Reading Passage */}
-            {currentQuestion.passage && isReading && (
+            {/* Reading or Listening Passage - SHOWN WHILE ANSWERING */}
+            {currentQuestion.passage && (isReading || isListening) && (
               <div className="p-6 rounded-[2rem] bg-amber-50 border-2 border-amber-100 shadow-sm relative overflow-hidden group">
                 <div className="absolute top-0 right-0 p-3 opacity-10">
-                  <BookOpen size={48} className="text-amber-800" />
+                  {isListening ? <Music size={48} className="text-blue-800" /> : <BookOpen size={48} className="text-amber-800" />}
                 </div>
                 <div className="flex items-center gap-2 mb-4">
-                  <div className="bg-amber-200 p-1.5 rounded-lg">
-                    <BookOpen className="text-amber-700" size={18} />
+                  <div className={`${isListening ? 'bg-blue-200' : 'bg-amber-200'} p-1.5 rounded-lg`}>
+                    {isListening ? <Music className="text-blue-700" size={18} /> : <BookOpen className="text-amber-700" size={18} />}
                   </div>
-                  <span className="text-xs font-black text-amber-600 uppercase tracking-widest">Reading Passage</span>
+                  <span className={`text-xs font-black uppercase tracking-widest ${isListening ? 'text-blue-600' : 'text-amber-600'}`}>
+                    {isListening ? 'Listening Script' : 'Reading Passage'}
+                  </span>
                 </div>
                 <p className="text-lg text-gray-700 leading-relaxed font-medium italic">
                   "{currentQuestion.passage}"
@@ -335,19 +382,6 @@ const App: React.FC = () => {
                     </div>
                   </div>
                 </div>
-
-                {/* Listening Script for Review */}
-                {currentQuestion.passage && isListening && (
-                  <div className="p-5 rounded-3xl bg-blue-50/50 border-2 border-blue-100 border-dashed">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Music className="text-blue-500" size={16} />
-                      <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Transcript</span>
-                    </div>
-                    <p className="text-sm text-gray-600 leading-relaxed italic font-medium">
-                      "{currentQuestion.passage}"
-                    </p>
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -379,6 +413,10 @@ const App: React.FC = () => {
           70% { opacity: 1; transform: translate(-50%, -80px) scale(1.2) rotate(-5deg); }
           100% { opacity: 0; transform: translate(-50%, -140px) scale(1) rotate(0deg); }
         }
+        @keyframes falling {
+          0% { transform: translateY(-50px) rotate(0deg); opacity: 1; }
+          100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+        }
         .animate-float-up {
           animation: floatUp 1.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
           position: absolute;
@@ -388,12 +426,19 @@ const App: React.FC = () => {
           text-shadow: 0 10px 20px rgba(34, 197, 94, 0.4);
           z-index: 50;
         }
+        .blossom-particle {
+          position: absolute;
+          top: -50px;
+          font-size: 24px;
+          animation: falling 3s linear forwards;
+          z-index: 100;
+          pointer-events: none;
+        }
         body {
             overflow-x: hidden;
             -webkit-tap-highlight-color: transparent;
             background-color: #F8FAFC;
         }
-        /* Hide scrollbar for Chrome, Safari and Opera */
         ::-webkit-scrollbar {
           display: none;
         }
